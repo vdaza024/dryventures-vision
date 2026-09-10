@@ -1,33 +1,67 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="./style.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pen</title>
-  </head>
-  <body>
+<html lang="es">
 
-    <script src="./script.js"></script>
-  </body>
-</html>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
-<div class="container">
-  <h1>DryVentures Vision</h1>
+<head>
+  <meta charset="UTF-8">
 
-  <p class="subtitle">
-    Detección de personas y análisis básico de movimiento
-  </p>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <div class="status" id="status">
-    Cargando modelo de IA...
+  <title>DryVentures Vision</title>
+
+  <link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+
+  <div class="container">
+
+    <h1>DryVentures Vision</h1>
+
+    <p class="subtitle">
+      Detección de personas y análisis básico de movimiento
+    </p>
+
+    <div class="status" id="status">
+      Cargando modelo de IA...
+    </div>
+
+    <div class="buttons">
+
+      <button id="webcamButton" disabled>
+        Activar cámara
+      </button>
+
+      <button id="stopButton" disabled>
+        Detener cámara
+      </button>
+
+    </div>
+
+    <div class="video-container">
+
+      <video
+        id="webcam"
+        autoplay
+        muted
+        playsinline>
+      </video>
+
+      <canvas id="canvas"></canvas>
+
+    </div>
+
   </div>
 
- <button id="webcamButton" disabled>
-  Activar cámara
-</button>
 
-<button id="stopButton" disabled>
-  Detener cámara
-</button>=
+  <!-- TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js"></script>
+
+  <!-- COCO-SSD -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
+  <!-- Nuestro código -->
+  <script src="./script.js"></script>
+
+</body>
+
+</html>
