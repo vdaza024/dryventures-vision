@@ -1,354 +1,202 @@
-let model = null;
-let video;
-let canvas;
-let ctx;
+document.addEventListener("DOMContentLoaded", async () => {
 
-let previousPerson = null;
-let cameraStarted = false;
+    const video = document.getElementById("webcam");
+    const canvas = document.getElementById("canvas");
+    const webcamButton = document.getElementById("webcamButton");
+    const stopButton = document.getElementById("stopButton");
+    const status = document.getElementById("status");
 
+    // Verificar que los elementos existan
+    if (!video || !canvas) {
+        console.error("No se encontraron los elementos de vídeo o canvas.");
+        return;
+    }
 
-// ==========================================
-// INICIAR LA APLICACIÓN
-// ==========================================
+    const ctx = canvas.getContext("2d");
 
-window.addEventListener("DOMContentLoaded", () => {
+    let model = null;
+    let stream = null;
+    let detecting = false;
+    let previousCenter = null;
 
-  video = document.getElementById("webcam");
-  canvas = document.getElementById("canvas");
+    // Cargar modelo
+    try {
 
-  if (!video || !canvas) {
-    console.error("No se encontraron los elementos de vídeo o canvas.");
-    return;
-  }
+        status.textContent = "Cargando modelo de IA...";
 
-  ctx = canvas.getContext("2d");
+        model = await cocoSsd.load();
 
-  loadModel();
+        status.textContent = "Modelo cargado. Puedes activar la cámara.";
 
-});
+        webcamButton.disabled = false;
 
+    } catch (error) {
 
-// ==========================================
-// CARGAR MODELO DE IA
-// ==========================================
+        console.error("Error cargando el modelo:", error);
 
-async function loadModel() {
-
-  const status = document.getElementById("status");
-  const button = document.getElementById("webcamButton");
-
-  status.textContent = "Cargando modelo de visión artificial...";
-
-  try {
-
-    model = await cocoSsd.load();
-
-    status.textContent =
-      "Modelo listo. Puedes activar la cámara.";
-
-    button.disabled = false;
-
-  } catch (error) {
-
-    status.textContent =
-      "No se pudo cargar el modelo de IA.";
-
-    console.error(error);
-
-  }
-
-}
-
-
-// ==========================================
-// ACTIVAR CÁMARA
-// ==========================================
-
-document.addEventListener("click", async (event) => {
-
-  if (event.target.id !== "webcamButton") {
-    return;
-  }
-
-  if (cameraStarted) {
-    return;
-  }
-
-  const button = document.getElementById("webcamButton");
-  const stopButton = document.getElementById("stopButton");
-  const status = document.getElementById("status");
-
-  try {
-
-    const stream =
-      await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false
-      });
-
-    video.srcObject = stream;
-
-    cameraStarted = true;
-
-    button.disabled = true;
-    button.textContent = "Cámara activa";
-
-    stopButton.disabled = false;
-
-    status.textContent =
-      "Analizando imagen en tiempo real...";
-
-    video.addEventListener(
-      "loadeddata",
-      startDetection,
-      { once: true }
-    );
-
-  } catch (error) {
-
-    status.textContent =
-      "No fue posible acceder a la cámara.";
-
-    console.error(error);
-
-  }
-
-});
-
-
-// ==========================================
-// DETENER CÁMARA
-// ==========================================
-
-document.addEventListener("click", (event) => {
-
-  if (event.target.id !== "stopButton") {
-    return;
-  }
-
-  if (video.srcObject) {
-
-    const tracks =
-      video.srcObject.getTracks();
-
-    tracks.forEach(track => track.stop());
-
-    video.srcObject = null;
-  }
-
-  cameraStarted = false;
-  previousPerson = null;
-
-  const button =
-    document.getElementById("webcamButton");
-
-  const stopButton =
-    document.getElementById("stopButton");
-
-  const status =
-    document.getElementById("status");
-
-  button.disabled = false;
-  button.textContent = "Activar cámara";
-
-  stopButton.disabled = true;
-
-  status.textContent =
-    "Cámara detenida.";
-
-  document.getElementById("personCount").textContent = "0";
-
-  document.getElementById("movementStatus").textContent =
-    "Esperando...";
-
-  ctx.clearRect(
-    0,
-    0,
-    canvas.width,
-    canvas.height
-  );
-
-});
-
-
-// ==========================================
-// INICIAR DETECCIÓN
-// ==========================================
-
-function startDetection() {
-
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-
-  detectObjects();
-
-}
-
-
-// ==========================================
-// DETECTAR PERSONAS
-// ==========================================
-
-async function detectObjects() {
-
-  if (!model || !video || !cameraStarted) {
-    return;
-  }
-
-  const predictions =
-    await model.detect(video, 20, 0.5);
-
-
-  // Limpiar canvas
-
-  ctx.clearRect(
-    0,
-    0,
-    canvas.width,
-    canvas.height
-  );
-
-
-  // Buscar únicamente personas
-
-  const people = predictions.filter(
-    prediction =>
-      prediction.class === "person"
-  );
-
-
-  // Mostrar número de personas
-
-  const personCount =
-    document.getElementById("personCount");
-
-  personCount.textContent =
-    people.length;
-
-
-  // ========================================
-  // DIBUJAR PERSONAS
-  // ========================================
-
-  people.forEach(person => {
-
-    const [x, y, width, height] =
-      person.bbox;
-
-    ctx.strokeStyle = "#00ff00";
-    ctx.lineWidth = 3;
-
-    ctx.strokeRect(
-      x,
-      y,
-      width,
-      height
-    );
-
-    ctx.fillStyle = "#00ff00";
-    ctx.font = "16px Arial";
-
-    ctx.fillText(
-      "Persona " +
-      Math.round(person.score * 100) +
-      "%",
-      x,
-      Math.max(y - 8, 16)
-    );
-
-  });
-
-
-  // ========================================
-  // ANALIZAR MOVIMIENTO
-  // ========================================
-
-  const movementStatus =
-    document.getElementById("movementStatus");
-
-
-  if (people.length === 1) {
-
-    const person = people[0];
-
-    const [x, y, width, height] =
-      person.bbox;
-
-
-    // Centro de la persona
-
-    const centerX =
-      x + width / 2;
-
-    const centerY =
-      y + height / 2;
-
-
-    // Comparar con posición anterior
-
-    if (previousPerson !== null) {
-
-      const distance =
-        Math.sqrt(
-          Math.pow(
-            centerX - previousPerson.x,
-            2
-          ) +
-          Math.pow(
-            centerY - previousPerson.y,
-            2
-          )
-        );
-
-
-      if (distance > 8) {
-
-        movementStatus.textContent =
-          "En movimiento";
-
-      } else {
-
-        movementStatus.textContent =
-          "Quieto";
-
-      }
-
-    } else {
-
-      movementStatus.textContent =
-        "Analizando...";
+        status.textContent = "Error al cargar el modelo de IA.";
 
     }
 
 
-    previousPerson = {
-      x: centerX,
-      y: centerY
-    };
+    // ACTIVAR CÁMARA
+    webcamButton.addEventListener("click", async () => {
+
+        try {
+
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: false
+            });
+
+            video.srcObject = stream;
+
+            await video.play();
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            webcamButton.disabled = true;
+            stopButton.disabled = false;
+
+            detecting = true;
+
+            status.textContent = "Cámara activa. Analizando...";
+
+            detectFrame();
+
+        } catch (error) {
+
+            console.error("Error accediendo a la cámara:", error);
+
+            status.textContent = "No se pudo acceder a la cámara.";
+
+        }
+
+    });
 
 
-  } else if (people.length === 0) {
+    // DETENER CÁMARA
+    stopButton.addEventListener("click", () => {
 
-    movementStatus.textContent =
-      "Sin personas";
+        detecting = false;
 
-    previousPerson = null;
+        if (stream) {
+
+            stream.getTracks().forEach(track => track.stop());
+
+            stream = null;
+        }
+
+        video.srcObject = null;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        webcamButton.disabled = false;
+        stopButton.disabled = true;
+
+        status.textContent = "Cámara detenida.";
+
+        previousCenter = null;
+
+    });
 
 
-  } else {
+    // DETECCIÓN
+    async function detectFrame() {
 
-    movementStatus.textContent =
-      "Varias personas";
+        if (!detecting || !model) {
+            return;
+        }
 
-    previousPerson = null;
+        const predictions = await model.detect(video);
 
-  }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const people = predictions.filter(
+            prediction =>
+                prediction.class === "person" &&
+                prediction.score > 0.5
+        );
 
 
-  // Continuar analizando
+        // Dibujar personas detectadas
+        people.forEach(person => {
 
-  requestAnimationFrame(
-    detectObjects
-  );
+            const [x, y, width, height] = person.bbox;
 
-}
+            ctx.strokeStyle = "#00a651";
+            ctx.lineWidth = 3;
+
+            ctx.strokeRect(x, y, width, height);
+
+            ctx.font = "16px Arial";
+            ctx.fillStyle = "#00a651";
+
+            ctx.fillText(
+                `Persona ${(person.score * 100).toFixed(0)}%`,
+                x,
+                y > 20 ? y - 5 : y + 20
+            );
+
+        });
+
+
+        // Mostrar cantidad
+        if (people.length === 0) {
+
+            status.textContent = "Sin personas detectadas.";
+
+            previousCenter = null;
+
+        } else if (people.length > 1) {
+
+            status.textContent =
+                `${people.length} personas detectadas.`;
+
+            previousCenter = null;
+
+        } else {
+
+            const person = people[0];
+
+            const [x, y, width, height] = person.bbox;
+
+            const centerX = x + width / 2;
+            const centerY = y + height / 2;
+
+            if (previousCenter) {
+
+                const distance = Math.sqrt(
+                    Math.pow(centerX - previousCenter.x, 2) +
+                    Math.pow(centerY - previousCenter.y, 2)
+                );
+
+                if (distance > 8) {
+
+                    status.textContent =
+                        "1 persona detectada — EN MOVIMIENTO";
+
+                } else {
+
+                    status.textContent =
+                        "1 persona detectada — QUIETA";
+                }
+
+            } else {
+
+                status.textContent =
+                    "1 persona detectada — analizando movimiento...";
+            }
+
+            previousCenter = {
+                x: centerX,
+                y: centerY
+            };
+        }
+
+
+        requestAnimationFrame(detectFrame);
+    }
+
+});
