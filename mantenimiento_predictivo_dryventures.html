@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DryVentures Predictive Maintenance</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Arial,sans-serif;background:#f4f7f9;color:#1f2933}
+  .wrap{max-width:1200px;margin:auto;padding:28px 20px 40px}
+  h1{text-align:center;margin:5px 0 8px;font-size:34px}
+  .sub{text-align:center;color:#5b6770;margin-bottom:24px}
+  .controls{background:white;border-radius:14px;padding:18px;box-shadow:0 2px 10px #00000012;margin-bottom:20px}
+  .controls-row{display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap}
+  button{border:0;border-radius:8px;padding:11px 18px;font-size:15px;cursor:pointer}
+  #run{background:#1f2933;color:white}
+  #reset{background:#e7edf1}
+  label{font-weight:bold}
+  input[type=range]{width:220px}
+  .speed{font-weight:normal}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .card{background:white;border-radius:14px;padding:18px;box-shadow:0 2px 10px #00000012}
+  .card h2{margin:0 0 6px}
+  .tag{display:inline-block;padding:5px 9px;border-radius:20px;font-size:12px;font-weight:bold;margin-bottom:12px}
+  .reactive .tag{background:#f3e8e8}
+  .predictive .tag{background:#e8f1ed}
+  .status{padding:12px;border-radius:9px;background:#eef2f5;margin:10px 0;font-weight:bold}
+  .vars{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:12px 0}
+  .var{background:#f7f9fa;padding:10px;border-radius:8px}
+  .var small{display:block;color:#68747d;margin-bottom:3px}
+  .var strong{font-size:17px}
+  .bar{height:8px;background:#e5eaee;border-radius:20px;overflow:hidden;margin-top:6px}
+  .fill{height:100%;width:0%;background:#667780;transition:width .25s}
+  .log{height:155px;overflow:auto;background:#101820;color:#dce6eb;border-radius:8px;padding:10px;font:12px Consolas,monospace}
+  .log div{margin-bottom:5px}
+  .recommend{background:#edf5f1;padding:12px;border-radius:9px;margin-top:10px;min-height:45px}
+  canvas{width:100%;height:190px;border:1px solid #e5eaee;border-radius:8px;margin-top:12px}
+  .result{margin-top:18px;background:#fff;border-radius:14px;padding:18px;box-shadow:0 2px 10px #00000012;text-align:center}
+  .result strong{font-size:20px}
+  .foot{text-align:center;color:#68747d;font-size:12px;margin-top:18px}
+  @media(max-width:800px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>DryVentures Predictive Maintenance</h1>
+  <div class="sub">Simulación comparativa: mantenimiento reactivo frente a mantenimiento predictivo con IA</div>
+
+  <div class="controls">
+    <div class="controls-row">
+      <label>Velocidad del viento:
+        <input id="wind" type="range" min="5" max="18" value="10">
+        <span id="windVal" class="speed">10 m/s</span>
+      </label>
+      <button id="run">Ejecutar comparación</button>
+      <button id="reset">Reiniciar</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <section class="card reactive">
+      <span class="tag">SIN IA · REACTIVO</span>
+      <h2>Mantenimiento reactivo</h2>
+      <p>El sistema continúa operando hasta que las variables alcanzan niveles críticos y se produce el fallo.</p>
+      <div id="rStatus" class="status">Esperando ejecución...</div>
+      <div class="vars">
+        <div class="var"><small>Velocidad rotor</small><strong id="rRotor">0 rpm</strong></div>
+        <div class="var"><small>Temperatura cojinetes</small><strong id="rTemp">45 °C</strong></div>
+        <div class="var"><small>Vibración</small><strong id="rVib">1.0 mm/s</strong></div>
+        <div class="var"><small>Riesgo estimado</small><strong id="rRisk">0%</strong><div class="bar"><div id="rBar" class="fill"></div></div></div>
+      </div>
+      <canvas id="rChart" width="520" height="190"></canvas>
+      <div id="rLog" class="log"></div>
+    </section>
+
+    <section class="card predictive">
+      <span class="tag">CON IA · PREDICTIVO</span>
+      <h2>Mantenimiento predictivo</h2>
+      <p>La IA analiza la evolución de las variables, detecta una tendencia anómala y recomienda intervenir antes del fallo.</p>
+      <div id="pStatus" class="status">Esperando ejecución...</div>
+      <div class="vars">
+        <div class="var"><small>Velocidad rotor</small><strong id="pRotor">0 rpm</strong></div>
+        <div class="var"><small>Temperatura cojinetes</small><strong id="pTemp">45 °C</strong></div>
+        <div class="var"><small>Vibración</small><strong id="pVib">1.0 mm/s</strong></div>
+        <div class="var"><small>Riesgo detectado</small><strong id="pRisk">0%</strong><div class="bar"><div id="pBar" class="fill"></div></div></div>
+      </div>
+      <canvas id="pChart" width="520" height="190"></canvas>
+      <div id="pRec" class="recommend">La recomendación aparecerá cuando la IA detecte una tendencia de riesgo.</div>
+      <div id="pLog" class="log"></div>
+    </section>
+  </div>
+
+  <div id="result" class="result">Pulsa <strong>Ejecutar comparación</strong> para iniciar la simulación.</div>
+  <div class="foot">Prototipo académico inspirado en la herramienta de mantenimiento predictivo del curso. Variables: viento, rotor, temperatura y vibración.</div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let timer=null, running=false, t=0;
+let rHist=[], pHist=[];
+
+$("wind").addEventListener("input",()=> $("windVal").textContent=$("wind").value+" m/s");
+
+function log(id,msg){
+  const el=$(id); el.innerHTML += "<div>["+String(t).padStart(2,"0")+"] "+msg+"</div>"; el.scrollTop=el.scrollHeight;
+}
+
+function drawChart(canvasId, hist, predictive){
+  const c=$(canvasId), ctx=c.getContext("2d"), w=c.width, h=c.height;
+  ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle="#dfe5e9"; ctx.lineWidth=1;
+  for(let i=0;i<5;i++){let y=15+i*(h-30)/4;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+  if(hist.length<2)return;
+  ctx.strokeStyle="#334e5a"; ctx.lineWidth=2; ctx.beginPath();
+  hist.forEach((v,i)=>{let x=i*(w-20)/(Math.max(1,29)), y=h-15-(v/100)*(h-30); i?ctx.lineTo(x,y):ctx.moveTo(x,y)});
+  ctx.stroke();
+  ctx.font="11px Arial";ctx.fillStyle="#68747d";ctx.fillText("Riesgo (%)",8,12);
+  ctx.fillText(predictive?"IA anticipa intervención":"Evolución hasta fallo",w-120,h-5);
+}
+
+function reset(){
+  clearInterval(timer); running=false;t=0;rHist=[];pHist=[];
+  ["rLog","pLog"].forEach(id=>$(id).innerHTML="");
+  $("rStatus").textContent="Esperando ejecución...";
+  $("pStatus").textContent="Esperando ejecución...";
+  $("pRec").textContent="La recomendación aparecerá cuando la IA detecte una tendencia de riesgo.";
+  ["rRisk","pRisk"].forEach(id=>$(id).textContent="0%");
+  ["rBar","pBar"].forEach(id=>$(id).style.width="0%");
+  ["rRotor","pRotor"].forEach(id=>$(id).textContent="0 rpm");
+  ["rTemp","pTemp"].forEach(id=>$(id).textContent="45 °C");
+  ["rVib","pVib"].forEach(id=>$(id).textContent="1.0 mm/s");
+  $("result").innerHTML='Pulsa <strong>Ejecutar comparación</strong> para iniciar la simulación.';
+  drawChart("rChart",[]);drawChart("pChart",[]);
+}
+
+function step(){
+  t++;
+  const wind=+$("wind").value;
+  const stress=Math.max(0,(wind-7)/11);
+  const baseRisk=Math.min(100, Math.max(0,(t-5)*3.6 + stress*18 + Math.sin(t/2)*2));
+  const rRisk=Math.min(100,baseRisk + (t>18?(t-18)*5:0));
+  const pRisk=Math.min(100,baseRisk*0.78);
+
+  const rotor=Math.round(45*wind + Math.sin(t)*4);
+  const rTemp=45 + t*1.65 + stress*5;
+  const pTemp=45 + t*0.95 + stress*3;
+  const rVib=1 + t*0.13 + stress*0.4;
+  const pVib=1 + t*0.075 + stress*0.25;
+
+  $("rRotor").textContent=rotor+" rpm";$("pRotor").textContent=rotor+" rpm";
+  $("rTemp").textContent=rTemp.toFixed(1)+" °C";$("pTemp").textContent=pTemp.toFixed(1)+" °C";
+  $("rVib").textContent=rVib.toFixed(2)+" mm/s";$("pVib").textContent=pVib.toFixed(2)+" mm/s";
+  $("rRisk").textContent=Math.round(rRisk)+"%";$("pRisk").textContent=Math.round(pRisk)+"%";
+  $("rBar").style.width=rRisk+"%";$("pBar").style.width=pRisk+"%";
+  rHist.push(rRisk);pHist.push(pRisk);
+  drawChart("rChart",rHist,false);drawChart("pChart",pHist,true);
+
+  if(t===1){log("rLog","Sistema iniciado. Sin intervención preventiva.");log("pLog","Sistema iniciado. IA comienza a analizar variables.");}
+  if(t===8){log("rLog","Variables comienzan a desviarse.");log("pLog","IA identifica tendencia creciente en vibración y temperatura.");}
+  if(t===13){log("rLog","Aumento de vibración detectado, pero el sistema continúa.");log("pLog","Predicción: riesgo creciente de fallo. Se recomienda inspección.");$("pStatus").textContent="Riesgo anticipado — intervenir antes del fallo";$("pRec").textContent="Recomendación IA: programar mantenimiento preventivo e inspeccionar cojinetes y sistema de transmisión.";}
+  if(t===18){log("rLog","Temperatura elevada. La operación continúa.");log("pLog","Intervención recomendada antes de alcanzar niveles críticos.");}
+  if(t===24){log("rLog","ALERTA: variables en zona crítica.");}
+  if(t===28){
+    log("rLog","FALLO COMPLETO. Producción detenida.");
+    $("rStatus").textContent="FALLO DEL SISTEMA — producción detenida";
+    $("rStatus").style.background="#f3e8e8";
+    $("pStatus").textContent="Mantenimiento programado — fallo evitado";
+    $("pStatus").style.background="#e8f1ed";
+    log("pLog","Mantenimiento ejecutado a tiempo. Fallo evitado.");
+    $("result").innerHTML="<strong>Resultado:</strong> el escenario reactivo llega al fallo, mientras el escenario predictivo identifica el riesgo y permite intervenir antes de la parada.";
+    clearInterval(timer);running=false;
+  } else if(t<28){
+    $("rStatus").textContent="Sistema operativo — riesgo "+Math.round(rRisk)+"%";
+    if(t<13)$("pStatus").textContent="IA analizando variables — riesgo "+Math.round(pRisk)+"%";
+  }
+}
+
+$("run").addEventListener("click",()=>{
+  reset(); running=true;
+  timer=setInterval(step,450);
+});
+$("reset").addEventListener("click",reset);
+</script>
+</body>
+</html>
